@@ -124,6 +124,7 @@ class CCGEN(_m.Tool()):
     
     Scenario = _m.Attribute(_m.InstanceType) 
     ConnectorModeIds = _m.Attribute(_m.ListType)
+    RequiredModeIds = _m.Attribute(_m.ListType)
     MassAttribute = _m.Attribute(_m.InstanceType)
     virtual_mass = _m.Attribute(float)
     SplitLinks = _m.Attribute(bool)
@@ -197,6 +198,18 @@ class CCGEN(_m.Tool()):
                                  self.Scenario.mode('d')]
         pb.add_select_mode("ConnectorModeIds",
                            title = "Modes on new connectors")
+
+        self.RequiredModeIds = [self.Scenario.mode('c'),
+                                 self.Scenario.mode('w'),
+                                 self.Scenario.mode('h'),
+                                 self.Scenario.mode('i'),
+                                 self.Scenario.mode('j'),
+                                 self.Scenario.mode('f'),
+                                 self.Scenario.mode('e'),
+                                 self.Scenario.mode('d')]
+        pb.add_select_mode("RequiredModeIds",
+                           title = "Required Modes",
+                           note = "New connectors must connect to at least one link with each of these modes.")
 
 
         pb.add_header("EXCLUSIONS")
@@ -805,6 +818,7 @@ class CCGEN(_m.Tool()):
         for setSize in range(2, min(self.MaxConnectors, len(zone._candidateNodes)) + 1):
             for configuration in combinations(zone._candidateNodes, setSize):
                 utilComponents = self._calculateUtility(zone, configuration, distanceMatrix)
+                has_mode_access = self._checkRequiredModes(zone._candidateNodes)
                 util = sum([beta * param for (beta, param) in utilComponents.itervalues()])
                 utils.append(util)
                 
@@ -1120,6 +1134,19 @@ class CCGEN(_m.Tool()):
                 #+ self.BetaGravity * grav
     
     ####################################################################################################
+
+    def _checkRequiredModes(self,configuration):
+
+        requiredModeSet = set(self.RequiredModeIds)
+        linkModeSet = set([])
+        for node in configuration:
+            for out_link in node.outgoing_links():
+                #modes on links do not count
+                if  not out_link.i_node.is_centroid and not out_link.j_node.is_centroid:
+                    linkModeSet |= out_link.modes
+        
+        return requiredModeSet.issubset(linkModeSet)
+
     
     def _calculateMassSum(self, configuration):
         sum = 0
